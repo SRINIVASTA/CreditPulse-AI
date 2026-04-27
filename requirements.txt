@@ -1,6 +1,6 @@
-streamlit, 
-pandas, 
-numpy, 
-matplotlib, 
-scikit-learn, 
-xlrd)
+streamlit
+pandas
+numpy
+matplotlib
+scikit-learn
+xlrd
