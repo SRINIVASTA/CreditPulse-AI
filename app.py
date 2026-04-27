@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.ensemble import RandomForestClassifier
 
 st.set_page_config(page_title="CreditPulse-AI", layout="wide")
 
@@ -14,17 +13,16 @@ def get_data(uploaded_file=None):
             if uploaded_file.name.endswith('.csv'):
                 return pd.read_csv(uploaded_file)
             else:
-                # header=1 handles the specific UCI Excel format
                 return pd.read_excel(uploaded_file, header=1)
         except Exception as e:
             st.error(f"Error reading file: {e}")
             return None
     else:
-        # Fallback Mock Data for immediate demo
+        # Fallback Mock Data for demo
         data_size = 500
         return pd.DataFrame({
             'ID': range(1, data_size + 1),
-            'LIMIT_BAL': np.random.choice([5000, 10000, 20000, 50000], data_size),
+            'LIMIT_BAL': np.random.choice([10000, 20000, 50000, 100000], data_size),
             'PAY_0': np.random.randint(-1, 4, data_size),
             'BILL_AMT1': np.random.uniform(500, 15000, data_size),
             'BILL_AMT2': np.random.uniform(500, 15000, data_size),
@@ -44,7 +42,6 @@ growth_l = st.sidebar.slider("Growth Limit (Util %)", 0.1, 0.5, 0.3)
 
 # --- 3. THE BRAIN & AUDITOR ---
 if df is not None:
-    # Ensure Column Names exist
     required = ['BILL_AMT1', 'LIMIT_BAL', 'PAY_0']
     if all(col in df.columns for col in required):
         
@@ -62,15 +59,36 @@ if df is not None:
             return "✅ STABLE"
 
         df['Autonomous_Action'] = df.apply(auditor, axis=1)
+        counts = df['Autonomous_Action'].value_counts()
 
-        # --- 4. THE DASHBOARD ---
+        # --- 4. DYNAMIC HEALTH RATING LOGIC ---
+        total = len(df)
+        block_pct = (len(df[df['Autonomous_Action'].str.contains('BLOCK')]) / total) * 100
+        growth_pct = (len(df[df['Autonomous_Action'] == "🌟 GROWTH"]) / total) * 100
+
+        if block_pct > 20:
+            status = "🔴 BAD (High Risk)"
+            color = "red"
+        elif block_pct > 10:
+            status = "🟠 GOOD (Manageable)"
+            color = "orange"
+        elif growth_pct > 30:
+            status = "💎 EXCELLENT (High Opportunity)"
+            color = "cyan"
+        else:
+            status = "🟢 VERY GOOD (Stable)"
+            color = "green"
+
+        # --- 5. THE DASHBOARD ---
         st.title("🚀 CreditPulse Autonomous Risk System")
         
-        # Row 1: Metrics
+        # HEALTH STATUS HEADER
+        st.markdown(f"### Current Portfolio Rating: :{color}[{status}]")
+        
         m1, m2, m3, m4 = st.columns(4)
-        m1.metric("Portfolio Size", len(df))
-        m2.metric("Blocking Actions", len(df[df['Autonomous_Action'].str.contains('BLOCK')]))
-        m3.metric("Growth Leads", len(df[df['Autonomous_Action'] == "🌟 GROWTH"]))
+        m1.metric("Portfolio Size", total)
+        m2.metric("Critical Blocks", len(df[df['Autonomous_Action'].str.contains('BLOCK')]), delta="-Risk", delta_color="inverse")
+        m3.metric("Growth Leads", len(df[df['Autonomous_Action'] == "🌟 GROWTH"]), delta="+Upsell")
         m4.metric("Avg Util Rate", f"{df['UTIL_RATE'].mean():.1%}")
 
         st.divider()
@@ -80,13 +98,10 @@ if df is not None:
         
         with c1:
             st.subheader("Autonomous Portfolio Health (3D View)")
-            counts = df['Autonomous_Action'].value_counts()
-            
             fig, ax = plt.subplots(figsize=(8, 5))
             labels = counts.index
             explode = [0.1 if 'BLOCK' in l or 'NUDGE' in l else 0.05 for l in labels]
             
-            # Using specific colors for impact
             color_map = {
                 '✅ STABLE': '#2ECC71', '📩 NUDGE': '#3498DB', 
                 '🌟 GROWTH': '#F1C40F', '⛔ CRITICAL BLOCK': '#E74C3C', 
@@ -114,7 +129,6 @@ if df is not None:
         st.subheader("Actionable Customer List")
         st.dataframe(df[['ID', 'UTIL_RATE', 'PAY_0', 'Autonomous_Action']].head(100), use_container_width=True)
 
-        # Download Report
         csv = df.to_csv(index=False).encode('utf-8')
         st.download_button("📥 Download Risk Report", csv, "risk_report.csv", "text/csv")
         
