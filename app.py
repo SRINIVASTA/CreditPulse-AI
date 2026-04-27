@@ -5,92 +5,85 @@ import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 
-# Page Config
-st.set_page_config(page_title="Autonomous Credit System", layout="wide")
+st.set_page_config(page_title="CreditPulse-AI", layout="wide")
 
-# --- DATA GENERATION / LOADING ---
+# --- DATA INTAKE (Dual Mode) ---
 @st.cache_data
-def load_data():
-    # Simulating the Excel data structure
-    data_size = 5000
-    df = pd.DataFrame({
-        'ID': range(1, data_size + 1),
-        'LIMIT_BAL': np.random.choice([5000, 10000, 20000, 50000], data_size),
-        'PAY_0': np.random.randint(-1, 5, data_size),
-        'BILL_AMT1': np.random.uniform(1000, 40000, data_size),
-        'BILL_AMT2': np.random.uniform(1000, 40000, data_size),
-        'PAY_AMT1': np.random.uniform(0, 5000, data_size),
-        'default': np.random.randint(0, 2, data_size)
-    })
-    return df
+def get_data(uploaded_file=None):
+    if uploaded_file is not None:
+        try:
+            # Detect file type
+            if uploaded_file.name.endswith('.csv'):
+                return pd.read_csv(uploaded_file)
+            else:
+                return pd.read_excel(uploaded_file)
+        except Exception as e:
+            st.error(f"Error reading file: {e}")
+            return None
+    else:
+        # AUTOMATIC SAMPLE DATA (Matches UCI Column Names)
+        # In GitHub, you can replace this with: pd.read_csv("default_credit_data.csv")
+        np.random.seed(42)
+        data_size = 1000
+        return pd.DataFrame({
+            'ID': range(1, data_size + 1),
+            'LIMIT_BAL': np.random.choice([10000, 50000, 100000, 200000], data_size),
+            'PAY_0': np.random.randint(-1, 5, data_size),
+            'BILL_AMT1': np.random.uniform(500, 20000, data_size),
+            'BILL_AMT2': np.random.uniform(500, 20000, data_size),
+            'PAY_AMT1': np.random.uniform(0, 5000, data_size),
+            'default payment next month': np.random.randint(0, 2, data_size)
+        })
 
-df = load_data()
+# Sidebar - File Upload
+st.sidebar.header("📁 Data Intake")
+user_file = st.sidebar.file_uploader("Upload Credit CSV/Excel", type=["csv", "xls", "xlsx"])
+df = get_data(user_file)
 
-# --- SIDEBAR CONTROLS ---
-st.sidebar.header("🛠️ Policy Configuration")
-risk_threshold = st.sidebar.slider("Risk Threshold (Months Delay)", 1, 4, 2)
-util_limit = st.sidebar.slider("Nudge Limit (Utilization %)", 0.5, 1.0, 0.85)
-reward_util = st.sidebar.slider("Growth Limit (Utilization %)", 0.1, 0.5, 0.3)
+# Sidebar - Policy Controls
+st.sidebar.header("🛠️ Policy Engine")
+risk_t = st.sidebar.slider("Risk Threshold (Delinquency)", 1, 4, 2)
+util_l = st.sidebar.slider("Nudge Limit (Util %)", 0.5, 1.0, 0.85)
 
-# --- LOGIC ENGINE ---
-def process_data(data, risk_t, util_l, reward_l):
-    temp_df = data.copy()
-    # Math logic
-    temp_df['UTIL_RATE'] = temp_df['BILL_AMT1'] / (temp_df['LIMIT_BAL'] + 1)
-    temp_df['SPENDING_JUMP'] = temp_df['BILL_AMT1'] / (temp_df['BILL_AMT2'] + 1)
+# --- CORE LOGIC ---
+if df is not None:
+    # Ensure correct column names for UCI or Sample
+    target = 'default payment next month' if 'default payment next month' in df.columns else 'default'
     
-    def engine(row):
+    # Brain (Quick ML Prediction)
+    df['UTIL_RATE'] = df['BILL_AMT1'] / (df['LIMIT_BAL'] + 1)
+    df['SPENDING_JUMP'] = df['BILL_AMT1'] / (df['BILL_AMT2'] + 1)
+    
+    # Auditor (Decision Engine)
+    def auditor(row):
         if row['PAY_0'] >= risk_t: return "⛔ CRITICAL BLOCK"
         if row['SPENDING_JUMP'] >= 5: return "🛡️ SECURITY BLOCK"
         if row['UTIL_RATE'] > util_l: return "📩 NUDGE"
-        if row['PAY_0'] <= 0 and row['UTIL_RATE'] < reward_l: return "🌟 GROWTH"
+        if row['PAY_0'] <= 0 and row['UTIL_RATE'] < 0.3: return "🌟 GROWTH"
         return "✅ STABLE"
 
-    temp_df['Autonomous_Action'] = temp_df.apply(engine, axis=1)
-    return temp_df
+    df['Autonomous_Action'] = df.apply(auditor, axis=1)
 
-processed_df = process_data(df, risk_threshold, util_limit, reward_util)
-
-# --- DASHBOARD LAYOUT ---
-st.title("🚀 Autonomous Credit Risk System")
-st.markdown("### Real-time Portfolio Logic & Action Engine")
-
-col1, col2, col3 = st.columns(3)
-with col1:
-    total_val = processed_df['BILL_AMT1'].sum()
-    st.metric("Total Portfolio Volume", f"${total_val:,.0f}")
-with col2:
-    blocked = processed_df[processed_df['Autonomous_Action'].str.contains("BLOCK")]
-    st.metric("Quarantined Volume", f"${blocked['BILL_AMT1'].sum():,.0f}", delta_color="inverse")
-with col3:
-    growth = processed_df[processed_df['Autonomous_Action'] == "🌟 GROWTH"]
-    st.metric("Upsell Potential", f"${growth['BILL_AMT1'].sum():,.0f}")
-
-# --- VISUALS ---
-st.divider()
-c1, c2 = st.columns([2, 1])
-
-with c1:
-    st.subheader("Portfolio Distribution")
-    counts = processed_df['Autonomous_Action'].value_counts()
-    fig, ax = plt.subplots(figsize=(10, 5))
-    colors = {'✅ STABLE': '#2ECC71', '📩 NUDGE': '#3498DB', '🌟 GROWTH': '#FFD700', '⛔ CRITICAL BLOCK': '#E74C3C', '🛡️ SECURITY BLOCK': '#95A5A6'}
-    current_colors = [colors.get(x, '#333') for x in counts.index]
+    # --- UI RENDERING ---
+    st.title("🚀 CreditPulse Autonomous System")
     
-    counts.plot(kind='bar', color=current_colors, ax=ax)
-    plt.xticks(rotation=45)
-    st.pyplot(fig)
+    # High-level Metrics
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Portfolio Size", f"{len(df)} Accounts")
+    m2.metric("Loss Prevention", f"{len(df[df['Autonomous_Action'].str.contains('BLOCK')]):,}")
+    m3.metric("Growth Leads", len(df[df['Autonomous_Action'] == "🌟 GROWTH"]))
 
-with c2:
-    st.subheader("Policy Rulebook")
-    st.info(f"**Growth:** Pay_0 <= 0 & Util < {reward_util*100:.0f}%")
-    st.warning(f"**Nudge:** Util > {util_limit*100:.0f}%")
-    st.error(f"**Block:** Delay >= {risk_threshold} months")
+    # Visuals
+    c1, c2 = st.columns([2, 1])
+    with c1:
+        st.subheader("Automated Action Distribution")
+        counts = df['Autonomous_Action'].value_counts()
+        st.bar_chart(counts)
+    with c2:
+        st.subheader("Policy Rulebook")
+        st.write(f"- **Block:** Delay ≥ {risk_t} months")
+        st.write(f"- **Nudge:** Utilization > {util_l*100:.0f}%")
+        st.write("- **Growth:** No delay & Low usage")
 
-# --- DATA TABLE ---
-st.subheader("Actionable Customer List")
-st.dataframe(processed_df[['ID', 'UTIL_RATE', 'PAY_0', 'Autonomous_Action']].head(100), use_container_width=True)
-
-# CSV Download
-csv = processed_df.to_csv(index=False).encode('utf-8')
-st.download_button("📥 Download Action Report", data=csv, file_name="credit_actions.csv", mime="text/csv")
+    st.subheader("Actionable Customer Insights")
+    st.dataframe(df[['ID', 'UTIL_RATE', 'PAY_0', 'Autonomous_Action']].head(50), use_container_width=True)
