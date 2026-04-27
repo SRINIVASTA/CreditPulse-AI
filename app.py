@@ -74,7 +74,7 @@ if df is not None:
             color = "orange"
         elif growth_pct > 30:
             status = "💎 EXCELLENT (High Opportunity)"
-            color = "cyan"
+            color = "blue"
         else:
             status = "🟢 VERY GOOD (Stable)"
             color = "green"
