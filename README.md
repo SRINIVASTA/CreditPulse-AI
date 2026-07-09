@@ -5,7 +5,7 @@ Developed by **SRINIVASTA**, CreditPulse-AI is a high-performance, autonomous cr
 🌐 **Live Interactive Web App:** [Launch Live Streamlit Dashboard](https://creditpulse-ai-ow7sdnqsrbt6yf4ddtrxmc.streamlit.app/)
 ## 🖥️ Project Presentation Pitch Deck
 
-[![Pitch Deck PDF](https://shields.io)](https://github.com/SRINIVASTA/vizag-smart-health-app/blob/main/Visakhapatnam%20Smart%20Health%20Presentation.pdf)
+[![Pitch Deck PDF](https://shields.io)](https://github.com/SRINIVASTA/CreditPulse-AI/blob/main/CreditPulse-AI%20Pitch%20Deck.pdf)
 
 📌 *Note for Judges: Click the red badge above to open our complete **Project Underwriting Pitch Deck PDF** directly within GitHub's native, interactive document viewer.*
 
