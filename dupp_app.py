@@ -8,7 +8,7 @@ from sklearn.metrics import roc_curve, auc, accuracy_score
 
 # ReportLab Layout Component Imports
 from reportlab.lib.pagesizes import letter
-from reportlab.lib import colors
+from reportlab.lib.colors import HexColor, whitesmoke, white
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
@@ -84,12 +84,12 @@ def generate_client_pdf(client_row):
     story = []
     styles = getSampleStyleSheet()
     
-    title_style = ParagraphStyle('DocTitle', parent=styles['Heading1'], fontName='Helvetica-Bold', fontSize=22, leading=26, textColor=colors.HexColor('#2C3E50'), spaceAfter=4)
-    subtitle_style = ParagraphStyle('DocSubtitle', parent=styles['Normal'], fontName='Helvetica', fontSize=10, leading=14, textColor=colors.HexColor('#7F8C8D'), spaceAfter=18)
-    section_heading = ParagraphStyle('SecHeading', parent=styles['Heading2'], fontName='Helvetica-Bold', fontSize=13, leading=16, textColor=colors.HexColor('#2C3E50'), spaceBefore=10, spaceAfter=6)
-    cell_text = ParagraphStyle('CellText', parent=styles['Normal'], fontName='Helvetica', fontSize=9, leading=13, textColor=colors.HexColor('#34495E'))
+    title_style = ParagraphStyle('DocTitle', parent=styles['Heading1'], fontName='Helvetica-Bold', fontSize=22, leading=26, textColor=HexColor('#2C3E50'), spaceAfter=4)
+    subtitle_style = ParagraphStyle('DocSubtitle', parent=styles['Normal'], fontName='Helvetica', fontSize=10, leading=14, textColor=HexColor('#7F8C8D'), spaceAfter=18)
+    section_heading = ParagraphStyle('SecHeading', parent=styles['Heading2'], fontName='Helvetica-Bold', fontSize=13, leading=16, textColor=HexColor('#2C3E50'), spaceBefore=10, spaceAfter=6)
+    cell_text = ParagraphStyle('CellText', parent=styles['Normal'], fontName='Helvetica', fontSize=9, leading=13, textColor=HexColor('#34495E'))
     cell_text_bold = ParagraphStyle('CellTextBold', parent=cell_text, fontName='Helvetica-Bold')
-    header_text_style = ParagraphStyle('HeaderText', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=9, leading=13, textColor=colors.whitesmoke)
+    header_text_style = ParagraphStyle('HeaderText', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=9, leading=13, textColor=whitesmoke)
 
     story.append(Paragraph("CreditPulse-AI Risk Statement", title_style))
     story.append(Paragraph("Automated Credit Risk Management Documentation", subtitle_style))
@@ -105,7 +105,7 @@ def generate_client_pdf(client_row):
     ]
     
     summary_table = Table(summary_data, colWidths=[200, 340])
-    summary_table.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F8F9FA')), ('PADDING', (0, 0), (-1, -1), 6), ('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.HexColor('#E2E8F0')), ('VALIGN', (0, 0), (-1, -1), 'MIDDLE')]))
+    summary_table.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, -1), HexColor('#F8F9FA')), ('PADDING', (0, 0), (-1, -1), 6), ('LINEBELOW', (0, 0), (-1, -1), 0.5, HexColor('#E2E8F0')), ('VALIGN', (0, 0), (-1, -1), 'MIDDLE')]))
     story.append(summary_table)
     story.append(Spacer(1, 15))
     
@@ -121,54 +121,9 @@ def generate_client_pdf(client_row):
         [Paragraph("Most Recent Remittance Total (PAY_AMT1)", cell_text), Paragraph(f"${client_row['PAY_AMT1']:,.2f}", cell_text)]
     ]
     
-    ledger_table = Table(ledger_data, colWidths=[320, 220])
-    ledger_table.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F77B4')), ('PADDING', (0, 0), (-1, -1), 8), ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')), ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8F9FA')]), ('VALIGN', (0, 0), (-1, -1), 'MIDDLE')]))
+    ledger_table = Table(ledger_data, colWidths=[300, 240])
+    ledger_table.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, 0), HexColor('#1F77B4')), ('PADDING', (0, 0), (-1, -1), 8), ('GRID', (0, 0), (-1, -1), 0.5, HexColor('#CBD5E1')), ('ROWBACKGROUNDS', (0, 1), (-1, -1), [white, HexColor('#F8F9FA')]), ('VALIGN', (0, 0), (-1, -1), 'MIDDLE')]))
     story.append(ledger_table)
-    
-    doc.build(story)
-    buffer.seek(0)
-    return buffer
-
-# --- REPORTLAB BULK DATA PDF GENERATION ENGINE ---
-def generate_bulk_pdf(dataframe):
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
-    story = []
-    styles = getSampleStyleSheet()
-    
-    title_style = ParagraphStyle('BulkTitle', parent=styles['Heading1'], fontName='Helvetica-Bold', fontSize=20, textColor=colors.HexColor('#2C3E50'), spaceAfter=4)
-    subtitle_style = ParagraphStyle('BulkSubtitle', parent=styles['Normal'], fontName='Helvetica', fontSize=9, textColor=colors.HexColor('#7F8C8D'), spaceAfter=15)
-    cell_text = ParagraphStyle('BulkCell', parent=styles['Normal'], fontName='Helvetica', fontSize=8, leading=11)
-    header_style = ParagraphStyle('BulkHeader', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, leading=11, textColor=colors.whitesmoke)
-    
-    story.append(Paragraph("CreditPulse-AI Master Risk Ledger Report", title_style))
-    story.append(Paragraph(f"Complete Database Extraction • Total Records: {len(dataframe)} Accounts", subtitle_style))
-    
-    table_data = [[
-        Paragraph("Client ID", header_style), Paragraph("Credit Limit", header_style), 
-        Paragraph("Utilization", header_style), Paragraph("PAY_0", header_style), 
-        Paragraph("AI Risk Prob", header_style), Paragraph("Strategy Action", header_style)
-    ]]
-    
-    for _, row in dataframe.iterrows():
-        table_data.append([
-            Paragraph(str(int(row['ID'])), cell_text),
-            Paragraph(f"${row['LIMIT_BAL']:,.0f}", cell_text),
-            Paragraph(f"{row['UTIL_RATE']:.1%}", cell_text),
-            Paragraph(str(int(row['PAY_0'])), cell_text),
-            Paragraph(f"{row['DEFAULT_PROBABILITY']:.1%}", cell_text),
-            Paragraph(str(row['Autonomous_Action']), cell_text)
-        ])
-        
-    bulk_table = Table(table_data, colWidths=[60, 90, 80, 50, 90, 170])
-    bulk_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1F77B4')),
-        ('PADDING', (0, 0), (-1, -1), 5),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8F9FA')]),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE')
-    ]))
-    story.append(bulk_table)
     
     doc.build(story)
     buffer.seek(0)
@@ -262,7 +217,7 @@ if df is not None:
                 st.success("**🌟 GROWTH Target:** Safe history with clear open spending capacity (<25% used).")
 
         # =========================================================================
-        # BLOCK 2: SYSTEM CUSTOMER REGISTRY & COMPILER DOWNLOAD SECTION (WITH SEARCH)
+        # BLOCK 2: SYSTEM CUSTOMER REGISTRY & SINGLE STATEMENT DOCUMENT EXPORTS
         # =========================================================================
         with st.expander("📋 BLOCK 2: Actionable Customer Registry & Document Center", expanded=True):
             display_cols = ['ID', 'UTIL_RATE', 'PAY_0', 'DEFAULT_PROBABILITY', 'Autonomous_Action']
@@ -270,7 +225,6 @@ if df is not None:
             # Interactive Text Matching Entry Box
             search_query = st.text_input("🔍 Search Customer Registry by Client ID:", placeholder="Type Client ID number...")
             
-            # Dynamic soft matching search matrix evaluation
             if search_query.strip():
                 try:
                     filtered_df = df[df['ID'].astype(str).str.contains(search_query.strip())]
@@ -281,22 +235,25 @@ if df is not None:
                 
             st.dataframe(filtered_df[display_cols], use_container_width=True)
             
-            # Shared File Extraction Operation Panel (Filters map downstream)
-            export_col1, export_col2 = st.columns(2)
-            with export_col1:
-                csv = filtered_df.to_csv(index=False).encode('utf-8')
-                st.download_button("📥 Export Compiled Risk Report (CSV)", csv, "ml_risk_report.csv", "text/csv", use_container_width=True)
-            with export_col2:
-                bulk_pdf_data = generate_bulk_pdf(filtered_df)
-                st.download_button("🖨️ Download Full Dataset Document Ledger (PDF)", bulk_pdf_data, "creditpulse_master_ledger.pdf", "application/pdf", use_container_width=True)
+            # CSV Data Export Button
+            csv = filtered_df.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Export Compiled Risk Report (CSV)", csv, "ml_risk_report.csv", "text/csv", use_container_width=True)
             
             st.write("---")
-            st.write("**🎯 Individual Client Profiler:**")
+            st.subheader("🎯 Individual Client Report Compiler")
+            
+            # Dropdown menu options update based on what you search above
             selected_id = st.selectbox("Select Client ID to extract individual statement:", options=filtered_df['ID'].tolist())
             if selected_id:
                 client_profile = filtered_df[filtered_df['ID'] == selected_id].iloc[0]
                 pdf_data = generate_client_pdf(client_profile)
-                st.download_button(label=f"📥 Download Official PDF Statement for Account #{int(selected_id)}", data=pdf_data, file_name=f"CreditPulse_Statement_ID_{int(selected_id)}.pdf", mime="application/pdf")
+                
+                st.download_button(
+                    label=f"🖨️ Download Official PDF Statement for Account #{int(selected_id)}", 
+                    data=pdf_data, 
+                    file_name=f"CreditPulse_Statement_ID_{int(selected_id)}.pdf", 
+                    mime="application/pdf"
+                )
 
         # =========================================================================
         # BLOCK 3: ML PERFORMANCE & EXPLAINABILITY GRAPHS
