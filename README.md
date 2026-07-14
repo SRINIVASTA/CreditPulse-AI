@@ -96,5 +96,7 @@ To run processing scripts seamlessly, verification data sources must contain the
 * `BILL_AMT2`: Prior historical billing record statement values.
 * `PAY_AMT1`: The most recent transaction remittance total.
 * `default payment next month`: Binary matrix labels ($0$ or $1$) indicating target tracking metrics.
+---
+
 **SRINIVASTA / CreditPulse-AI**  
 *Building the future of autonomous risk management.*
