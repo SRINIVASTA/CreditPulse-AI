@@ -78,7 +78,7 @@ def train_ml_model(data):
     return model
 
 # --- REPORTLAB SINGLE STATEMENT GENERATION ENGINE ---
-def generate_client_pdf(client_row):
+def generate_client_pdf(client_row, curr_symbol):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
     story = []
@@ -110,15 +110,19 @@ def generate_client_pdf(client_row):
     story.append(Spacer(1, 15))
     
     story.append(Paragraph("Financial Exposure Metrics Ledger", section_heading))
+    
+    # Use clean standard labels for PDF safety across symbols
+    pdf_curr = "Rs." if curr_symbol == "₹" else "$"
+    
     ledger_data = [
         [Paragraph("Metric Feature Description", header_text_style), Paragraph("Calculated Statement Value", header_text_style)],
-        [Paragraph("Total Allocated Credit Limit (LIMIT_BAL)", cell_text), Paragraph(f"${client_row['LIMIT_BAL']:,.2f}", cell_text)],
-        [Paragraph("Current Statement Balance (BILL_AMT1)", cell_text), Paragraph(f"${client_row['BILL_AMT1']:,.2f}", cell_text)],
+        [Paragraph("Total Allocated Credit Limit (LIMIT_BAL)", cell_text), Paragraph(f"{pdf_curr} {client_row['LIMIT_BAL']:,.2f}", cell_text)],
+        [Paragraph("Current Statement Balance (BILL_AMT1)", cell_text), Paragraph(f"{pdf_curr} {client_row['BILL_AMT1']:,.2f}", cell_text)],
         [Paragraph("Calculated Credit Card Utilization (UTIL_RATE)", cell_text), Paragraph(f"{client_row['UTIL_RATE']:.1%}", cell_text)],
         [Paragraph("Payment Delay Status Matrix (PAY_0)", cell_text), Paragraph(f"{int(client_row['PAY_0'])} Months Overdue", cell_text)],
-        [Paragraph("Prior Billing Statement Total (BILL_AMT2)", cell_text), Paragraph(f"${client_row['BILL_AMT2']:,.2f}", cell_text)],
+        [Paragraph("Prior Billing Statement Total (BILL_AMT2)", cell_text), Paragraph(f"{pdf_curr} {client_row['BILL_AMT2']:,.2f}", cell_text)],
         [Paragraph("Calculated Velocity Shift (SPENDING_JUMP)", cell_text), Paragraph(f"{client_row['SPENDING_JUMP']:.2f}x Scale Jump", cell_text)],
-        [Paragraph("Most Recent Remittance Total (PAY_AMT1)", cell_text), Paragraph(f"${client_row['PAY_AMT1']:,.2f}", cell_text)]
+        [Paragraph("Most Recent Remittance Total (PAY_AMT1)", cell_text), Paragraph(f"{pdf_curr} {client_row['PAY_AMT1']:,.2f}", cell_text)]
     ]
     
     ledger_table = Table(ledger_data, colWidths=[300, 240])
@@ -132,6 +136,11 @@ def generate_client_pdf(client_row):
 st.sidebar.header("📁 Data Intake")
 user_file = st.sidebar.file_uploader("Upload Credit CSV/Excel", type=["csv", "xls", "xlsx"])
 df = get_data(user_file)
+
+st.sidebar.header("⚙️ Localization Engine")
+# Added interactive core toggle switch layout element
+currency_mode = st.sidebar.selectbox("Select Operational Currency:", ["INR (₹)", "USD ($)"])
+currency_symbol = "₹" if "INR" in currency_mode else "$"
 
 st.sidebar.header("🤖 ML Control Panel")
 ml_threshold = st.sidebar.slider("Risk Decision Cut-off", 0.1, 0.9, 0.50)
@@ -220,7 +229,6 @@ if df is not None:
         # BLOCK 2: SYSTEM CUSTOMER REGISTRY & SINGLE STATEMENT DOCUMENT EXPORTS
         # =========================================================================
         with st.expander("📋 BLOCK 2: Actionable Customer Registry & Document Center", expanded=True):
-            display_cols = ['ID', 'UTIL_RATE', 'PAY_0', 'DEFAULT_PROBABILITY', 'Autonomous_Action']
             
             # Interactive Text Matching Entry Box
             search_query = st.text_input("🔍 Search Customer Registry by Client ID:", placeholder="Type Client ID number...")
@@ -232,8 +240,15 @@ if df is not None:
                     filtered_df = df.copy()
             else:
                 filtered_df = df.copy()
-                
-            st.dataframe(filtered_df[display_cols], use_container_width=True)
+            
+            # Formatted table rendering structure matching chosen currency sign configurations
+            table_display = filtered_df.copy()
+            table_display['LIMIT_BAL'] = table_display['LIMIT_BAL'].map(lambda x: f"{currency_symbol}{x:,.2f}")
+            table_display['UTIL_RATE'] = table_display['UTIL_RATE'].map(lambda x: f"{x:.1%}")
+            table_display['DEFAULT_PROBABILITY'] = table_display['DEFAULT_PROBABILITY'].map(lambda x: f"{x:.1%}")
+            
+            display_cols = ['ID', 'LIMIT_BAL', 'UTIL_RATE', 'PAY_0', 'DEFAULT_PROBABILITY', 'Autonomous_Action']
+            st.dataframe(table_display[display_cols], use_container_width=True)
             
             # CSV Data Export Button
             csv = filtered_df.to_csv(index=False).encode('utf-8')
@@ -242,14 +257,13 @@ if df is not None:
             st.write("---")
             st.subheader("🎯 Individual Client Report Compiler")
             
-            # Dropdown menu options update based on what you search above
             selected_id = st.selectbox("Select Client ID to extract individual statement:", options=filtered_df['ID'].tolist())
             if selected_id:
                 client_profile = filtered_df[filtered_df['ID'] == selected_id].iloc[0]
-                pdf_data = generate_client_pdf(client_profile)
+                pdf_data = generate_client_pdf(client_profile, currency_symbol)
                 
                 st.download_button(
-                    label=f"🖨️ Download Official PDF Statement for Account #{int(selected_id)}", 
+                    label=f"🖨️ Download Official PDF Statement for Account #{int(selected_id)} ({currency_mode})", 
                     data=pdf_data, 
                     file_name=f"CreditPulse_Statement_ID_{int(selected_id)}.pdf", 
                     mime="application/pdf"
