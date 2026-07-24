@@ -1,4 +1,108 @@
 import streamlit as st
+
+# Force Streamlit to completely hide the header bar, deployment buttons, and GitHub icons
+st.markdown("""
+    <style>
+    header[data-testid="stHeader"] {
+        visibility: hidden !important;
+        display: none !important;
+    }
+    div[data-testid="stToolbar"] {
+        visibility: hidden !important;
+        display: none !important;
+    }
+    footer {
+        visibility: hidden !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+import streamlit as st
+import requests
+import logging
+from streamlit_javascript import st_javascript
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("FIREWALL")
+
+def get_real_client_ip():
+    # 🔥 Forces the user's browser to execute JavaScript and fetch their real IP address
+    url = 'https://api.ipify.org?format=json'
+    script = f'await fetch("{url}").then(r => r.json());'
+    try:
+        result = st_javascript(script)
+        if isinstance(result, dict) and 'ip' in result:
+            return result['ip']
+    except Exception:
+        pass
+    return "Unknown IP"
+
+def verify_and_log_locally(user_key):
+    # Strict key to country mapping
+    KEY_COUNTRY_MAP = {
+        "TEST-KEY-1234": "India",
+        "CLIENT-IN-5566": "India",
+        "CLIENT-US-7788": "United States",
+        "CLIENT-NG-2233": "Nigeria"
+    }
+    
+    # 1. Anonymous Invalid Key Block
+    if user_key not in KEY_COUNTRY_MAP:
+        logger.error("🛑 REJECTED: Invalid key entry.")
+        st.error("🚨 ACCESS DENIED: Invalid or Unpaid Software License Key.")
+        st.stop()
+
+    # Get the real client IP via JS
+    ip = get_real_client_ip()
+    
+    if ip == "Unknown IP" or not ip:
+        st.warning("🔄 Authenticating secure connection profile... Please wait 2 seconds.")
+        st.stop()
+
+    # Get required target country for this key
+    required_country = KEY_COUNTRY_MAP[user_key]
+
+    city, country = "Unknown City", "Unknown Country"
+    try:
+        geo_response = requests.get(f'https://ipapi.co/{ip}/json/', timeout=5)
+        if geo_response.status_code == 200:
+            geo_data = geo_response.json()
+            city = geo_data.get("city", city)
+            country = geo_data.get("country_name", country)
+    except Exception:
+        pass
+
+    # 2. Updated Regional Lock Block (Smart Fallback Optimization)
+    # If the network API fails ("Unknown Country"), allow access ONLY if the key is your Indian profile
+    if country == "Unknown Country" and required_country == "India":
+        logger.info(f"ℹ️ API TIMEOUT BYPASS: Key '{user_key}' granted login via Indian account fallback.")
+        return "India (Network Fallback)"
+
+    # Strict structural comparison check
+    if country != required_country:
+        logger.warning(f"✈️ LOCATION BREACH BLOCKED: Key '{user_key}' (Requires {required_country}) attempted from {city}, {country} (IP: {ip})")
+        st.error(f"🚨 REGIONAL LOCK: This software profile is restricted to use inside the **{required_country}** only. Access denied.")
+        st.stop()
+
+    # Success Log
+    logger.info(f"🔓 ACCESS GRANTED: Key used in {city}, {country} (IP: {ip})")
+    return f"{city}, {country}"
+
+# --- Force Login UI Layout ---
+st.sidebar.title("🔐 Software Security Portal")
+license_input = st.sidebar.text_input("Enter License Key:", type="password")
+
+if not license_input:
+    st.title("🚀 CreditPulse Autonomous ML Risk System")
+    st.warning("🔒 This system is protected by copyright. Enter a license key in the sidebar to run.")
+    st.stop()
+
+# Run the strict browser check
+detected_location = verify_and_log_locally(license_input)
+st.sidebar.success(f"Verified Location: {detected_location}")
+# =========================================================================
+
+import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
