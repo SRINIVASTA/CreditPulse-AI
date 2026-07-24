@@ -18,64 +18,26 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # ========================================================================= 
-# 2. SECOND ITEM: CORE SECURITY APIS & TIMER INITIALIZATION (From Pages 1 & 5)
+# 2. RUNTIME TRACKERS INITIALIZATION (Page 5 Reference Layout)
 # ========================================================================= 
-import requests 
-import logging 
-import time  # <--- Essential for your countdown timer!
-from streamlit_javascript import st_javascript 
-
-logging.basicConfig(level=logging.INFO) 
-logger = logging.getLogger("FIREWALL") 
-
-# State trackers for the 10-minute limit must load immediately
 if "start_time" not in st.session_state:
     st.session_state.start_time = time.time()
 if "session_expired" not in st.session_state:
     st.session_state.session_expired = False
 
 # ========================================================================= 
-# 3. THIRD ITEM: SECURITY HELPER FUNCTIONS (From Pages 1 & 2)
+# 3. GLOBAL PASSWORD ACCESS HUB (Strips API Dependency to Stop App Crashes)
 # ========================================================================= 
-def get_real_client_ip(): 
-    url = 'https://ipify.org' 
-    script = f'await fetch("{url}").then(r => r.json());' 
-    try: 
-        result = st_javascript(script) 
-        if isinstance(result, dict) and 'ip' in result: 
-            return result['ip'] 
-    except Exception: 
-        pass 
-    return "Unknown IP" 
-
-def verify_and_log_locally(user_key): 
+def verify_global_access(user_key):
+    # Master key optimized for all global users
     GLOBAL_MASTER_KEY = "TEST-KEY-1234"
-    if user_key != GLOBAL_MASTER_KEY: 
-        logger.error("❌ REJECTED: Invalid key entry.") 
-        st.error("🚨 ACCESS DENIED: Invalid or Unpaid Software License Key.") 
-        st.stop() 
-        
-    ip = get_real_client_ip() 
-    if ip == "Unknown IP" or not ip: 
-        st.warning("🔄 Authenticating secure connection profile... Please wait 2 seconds.") 
-        st.stop() 
     
-    city, country = "Unknown City", "Unknown Country" 
-    try: 
-        geo_response = requests.get(f'https://ipapi.co{ip}/json/', timeout=5) 
-        if geo_response.status_code == 200: 
-            geo_data = geo_response.json() 
-            city = geo_data.get("city", city) 
-            country = geo_data.get("country_name", country) 
-    except Exception: 
-        pass 
-    
-    logger.info(f"🔓 GLOBAL ACCESS GRANTED: Key used in {city}, {country} (IP: {ip})") 
-    return f"{city}, {country}" 
+    if user_key != GLOBAL_MASTER_KEY:
+        st.error("🚨 ACCESS DENIED: Invalid or Unpaid Software License Key.")
+        st.stop()
+    return "Global Authorized Session"
 
-# ========================================================================= 
-# 4. FOURTH ITEM: LOGIN UI & SECURITY BALANCING LAUNCH (From Page 4)
-# ========================================================================= 
+# --- RENDER SECURITY PORTAL INTERFACE --- 
 st.sidebar.title("🔒 Software Security Portal") 
 license_input = st.sidebar.text_input("Enter License Key:", type="password") 
 
@@ -84,13 +46,14 @@ if not license_input:
     st.warning("🔐 This system is protected by copyright. Enter a license key in the sidebar to run.") 
     st.stop() 
 
-detected_location = verify_and_log_locally(license_input) 
-st.sidebar.success(f"Logged Location: {detected_location}") 
+# Validate input parameters instantly
+session_profile = verify_global_access(license_input)
+st.sidebar.success(f"Status: {session_profile}") 
 
 # ========================================================================= 
-# 5. FIFTH ITEM: NEW DYNAMIC 10-MINUTE TIMEOUT SYSTEM 
+# 4. 10-MINUTE ACTIVE COUNTDOWN TIMER INSTANCE
 # ========================================================================= 
-SESSION_LIMIT_SECONDS = 600  # 10 Minutes
+SESSION_LIMIT_SECONDS = 600  # 10 Minutes flat window balance
 elapsed_time = time.time() - st.session_state.start_time
 
 if elapsed_time > SESSION_LIMIT_SECONDS or st.session_state.session_expired:
@@ -98,18 +61,18 @@ if elapsed_time > SESSION_LIMIT_SECONDS or st.session_state.session_expired:
     st.title("🔒 Sandbox Session Expired")
     st.error("⏰ Your 10-minute automated verification window has fully elapsed.")
     st.info("To re-run the platform simulator, close this browser tab and click the link in the LinkedIn comments again.")
-    st.stop()  # Exits the file here, locking out the code below!
+    st.stop() 
 
+# Render ticking user-facing clock widget elements
 time_left_seconds = int(SESSION_LIMIT_SECONDS - elapsed_time)
 mins, secs = divmod(time_left_seconds, 60)
 st.sidebar.markdown("---")
 st.sidebar.markdown(f"### ⏳ Sandbox Timer:\n## `{mins:02d}:{secs:02d}`")
-st.sidebar.caption("Instance terminates automatically to optimize resource allocations.")
+st.sidebar.caption("Allocations terminate automatically to maximize server availability bounds.")
 
 # ========================================================================= 
-# 🛑 EVERYTHING ELSE BELOW IS COMING AFTER THE SECURITY VERIFICATIONS
+# 5. CORE MATHEMATICAL LIBRARIES & SYSTEM PIPELINES (Page 4 Continuation)
 # ========================================================================= 
-# =========================================================================
 
 import streamlit as st
 import pandas as pd
