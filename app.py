@@ -1,3 +1,4 @@
+import time
 import streamlit as st
 
 # Force Streamlit to completely hide the header bar, deployment buttons, and GitHub icons
