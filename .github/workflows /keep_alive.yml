@@ -1,0 +1,23 @@
+name: Keep Streamlit App Awake
+on:
+  schedule:
+    - cron: '0 */6 * * *' # Automatically pings every 6 hours
+  workflow_dispatch:      # Allows manual trigger anytime
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Automation Tools
+        run: pip install selenium webdriver-manager
+
+      - name: Wake Up App Using Browser Simulation
+        run: python wake_app.py
