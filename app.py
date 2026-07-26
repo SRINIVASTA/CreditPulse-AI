@@ -1,4 +1,6 @@
 import time
+import urllib.request
+import json
 import streamlit as st
 from streamlit.runtime.scriptrunner import get_script_run_ctx
 
@@ -82,44 +84,74 @@ else:
 is_developer = (license_input == "DEV-ADMIN-99")
 
 # ========================================================================= 
-# 🔓 ACCESS VALIDATION MATRIX (Includes your country-based Client Keys!)
+# 🌐 CACHED GEOLOCATION LOOKUP (Runs once per session)
+# ========================================================================= 
+def get_cached_location():
+    """Fetches real physical location and caches it in session memory."""
+    if "detected_country" not in st.session_state:
+        try:
+            # Calls free public IP API to fetch geographic location metadata
+            url = "http://ip-api.com"
+            response = urllib.request.urlopen(url, timeout=3)
+            data = json.loads(response.read().decode())
+            
+            if data.get("status") == "success":
+                st.session_state.detected_country = data.get("country", "GLOBAL NETWORK").upper()
+            else:
+                st.session_state.detected_country = "GLOBAL NETWORK"
+        except Exception:
+            st.session_state.detected_country = "GLOBAL NETWORK"
+            
+    return st.session_state.detected_country
+
+# ========================================================================= 
+# 🔓 ACCESS VALIDATION MATRIX (With Auto Geo-IP Detection for Keys)
 # ========================================================================= 
 def verify_global_access(user_key):
     GLOBAL_MASTER_KEY = "TEST-KEY-1234"
     DEVELOPER_KEY = "DEV-ADMIN-99"
     
+    # 🌟 DYNAMIC LOOKUP FOR DEVELOPERS
     if user_key == DEVELOPER_KEY:
+        detected_country = get_cached_location()
         if is_automation_runner:
-            return "System Health Ping Active"
-        return "Developer Admin Mode (Unlimited)"
+            return f"System Health Ping Active ({detected_country})", detected_country
+        return f"Developer Admin Mode (Unlimited) - {detected_country}", detected_country
         
+    # EXPLICIT HARDCODED LICENSE REGIONS (Extracts country from key string)
     elif user_key.startswith("CLIENT-"):
         try:
-            region = user_key.split("-")[1]
-            return f"Enterprise License Active ({region} Portfolio Unlimited) 👑"
-        except:
-            return "Enterprise License Active (Unlimited Access) 👑"
+            region = user_key.split("-")[1].upper()
+            return f"Enterprise License Active ({region} Portfolio Unlimited) 👑", region
+        except Exception:
+            return "Enterprise License Active (Unlimited Access) 👑", "GLOBAL ENTERPRISE"
         
+    # 🌟 DYNAMIC LOOKUP FOR SANDBOX USERS
     elif user_key == GLOBAL_MASTER_KEY:
-        # Check if this physical machine's network IP address is blocked on the server
         if client_network_ip in global_network_blacklist:
             st.sidebar.error("🚨 Status: Access Expired / Locked!")
             st.title("🔒 Sandbox Access Permanently Locked")
             st.error("⏰ Server Registry Warning: Your 10-minute automated preview window has fully elapsed.")
             st.info("To upgrade to a premium uncapped region profile, please enter your client license key.")
             st.stop()
-        return "Global Sandbox Session (10 Min)"
+            
+        detected_country = get_cached_location()
+        return f"Global Sandbox Session (10 Min) - {detected_country}", detected_country
         
     else:
-        st.error("🚨 ACCESS DENIED: Invalid or Unpaid Software License Key.")
+        st.sidebar.error("🚨 ACCESS DENIED: Invalid or Unpaid Software License Key.")
+        st.title("🔒 CreditPulse System Locked")
+        st.error("Invalid or unpaid license configuration profile provided.")
         st.stop()
 
+# Validate license existence first
 if not license_input: 
     st.title("CreditPulse Autonomous ML Risk System") 
     st.warning("🔐 This system is protected by copyright. Enter a license key in the sidebar to run.") 
     st.stop() 
 
-session_profile = verify_global_access(license_input)
+# Unpack both the profile status string and the dynamic country location
+session_profile, user_country = verify_global_access(license_input)
 st.sidebar.success(f"Status: {session_profile}") 
 
 is_paid_user = "Enterprise" in session_profile
@@ -128,7 +160,7 @@ is_paid_user = "Enterprise" in session_profile
 # ⏱️ 10-MINUTE TIMEOUT SYSTEM (Locks network footprint on the server)
 # ========================================================================= 
 if not is_developer and not is_paid_user:
-    SESSION_LIMIT_SECONDS = 600  # Set to 10 for a rapid 10-second cross-browser test!
+    SESSION_LIMIT_SECONDS = 600  
     
     if "start_time" not in st.session_state:
         st.session_state.start_time = time.time()
@@ -140,7 +172,6 @@ if not is_developer and not is_paid_user:
     if elapsed_time > SESSION_LIMIT_SECONDS or st.session_state.session_expired:
         st.session_state.session_expired = True
         
-        # Lockout the actual network location fingerprint on the server memory registry
         if client_network_ip != "unknown-node":
             global_network_blacklist.add(client_network_ip)
         
@@ -160,10 +191,19 @@ else:
     st.sidebar.markdown("---")
     if is_automation_runner:
         st.sidebar.warning("🤖 Core Engine Keep-Alive Loop Processing...")
-        st.title("System Diagnostic Overview")
-        st.write("Server connection verified successfully.")
     else:
         st.sidebar.info("⚡ Uncapped Developer Session Active. Timeout disabled.")
+
+# ========================================================================= 
+# 🎯 CORE APPLICATION CORE LANDING INTERFACE
+# ========================================================================= 
+st.title("CreditPulse Autonomous ML Risk System")
+st.success(f"👋 Welcome! System instance running profile for: **{user_country}**")
+
+if is_automation_runner:
+    st.write("Server connection verified successfully.")
+else:
+    st.write("Use the controls in the sidebar to configure core system components.")
 
 # ========================================================================= 
 # 📊 CORE APP DATA ANALYSIS CONTINUES SAFELY BELOW
