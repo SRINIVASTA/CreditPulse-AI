@@ -19,60 +19,99 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # ========================================================================= 
-# 2. RUNTIME TRACKERS INITIALIZATION (Page 5 Reference Layout)
+# 🔑 INPUT CONFIGURATION FOR USER VS DEVELOPER
 # ========================================================================= 
+st.sidebar.title("🔒 Software Security Portal") 
+license_input = st.sidebar.text_input("Enter License Key:", type="password") 
+
+# Detect Developer Bypass Mode
+is_developer = (license_input == "DEV-ADMIN-99")
+
+# ========================================================================= 
+# 🧠 BROWSER-LEVEL PERSISTENT BLACKLIST LOGIC (Skipped for Developer)
+# ========================================================================= 
+if not is_developer:
+    check_blacklist_js = """
+    <script>
+        const isBlacklisted = localStorage.getItem("creditpulse_expired");
+        if (isBlacklisted === "true") {
+            window.parent.document.body.innerHTML = `
+                <div style="font-family:sans-serif; text-align:center; margin-top:100px; padding:20px;">
+                    <h1 style="color:#E74C3C;">🔒 Sandbox Access Permanently Locked</h1>
+                    <p style="font-size:18px; color:#555;">Your single-use 10-minute preview allocation has fully elapsed on this device.</p>
+                    <p style="font-size:14px; color:#888;">To request an enterprise evaluation license, please send a message or comment on my LinkedIn post.</p>
+                </div>
+            `;
+        }
+    </script>
+    """
+    st.components.v1.html(check_blacklist_js, height=0, width=0)
+
+# Initialize standard runtime variables
 if "start_time" not in st.session_state:
     st.session_state.start_time = time.time()
 if "session_expired" not in st.session_state:
     st.session_state.session_expired = False
 
 # ========================================================================= 
-# 3. GLOBAL PASSWORD ACCESS HUB (Strips API Dependency to Stop App Crashes)
+# 🔓 ACCESS VALIDATION MATRIX
 # ========================================================================= 
 def verify_global_access(user_key):
-    # Master key optimized for all global users
     GLOBAL_MASTER_KEY = "TEST-KEY-1234"
+    DEVELOPER_KEY = "DEV-ADMIN-99"
     
-    if user_key != GLOBAL_MASTER_KEY:
+    if user_key == DEVELOPER_KEY:
+        return "Developer Admin Mode (Unlimited)"
+    elif user_key == GLOBAL_MASTER_KEY:
+        return "Global Sandbox Session (10 Min)"
+    else:
         st.error("🚨 ACCESS DENIED: Invalid or Unpaid Software License Key.")
         st.stop()
-    return "Global Authorized Session"
-
-# --- RENDER SECURITY PORTAL INTERFACE --- 
-st.sidebar.title("🔒 Software Security Portal") 
-license_input = st.sidebar.text_input("Enter License Key:", type="password") 
 
 if not license_input: 
     st.title("CreditPulse Autonomous ML Risk System") 
     st.warning("🔐 This system is protected by copyright. Enter a license key in the sidebar to run.") 
     st.stop() 
 
-# Validate input parameters instantly
 session_profile = verify_global_access(license_input)
 st.sidebar.success(f"Status: {session_profile}") 
 
 # ========================================================================= 
-# 4. 10-MINUTE ACTIVE COUNTDOWN TIMER INSTANCE
+# ⏱️ 10-MINUTE TIMEOUT SYSTEM (Completely Disabled for Developer)
 # ========================================================================= 
-SESSION_LIMIT_SECONDS = 600  # 10 Minutes flat window balance
-elapsed_time = time.time() - st.session_state.start_time
+if not is_developer:
+    SESSION_LIMIT_SECONDS = 600  # 10 Minutes for normal users
+    elapsed_time = time.time() - st.session_state.start_time
 
-if elapsed_time > SESSION_LIMIT_SECONDS or st.session_state.session_expired:
-    st.session_state.session_expired = True
-    st.title("🔒 Sandbox Session Expired")
-    st.error("⏰ Your 10-minute automated verification window has fully elapsed.")
-    st.info("To re-run the platform simulator, close this browser tab and click the link in the LinkedIn comments again.")
-    st.stop() 
+    if elapsed_time > SESSION_LIMIT_SECONDS or st.session_state.session_expired:
+        st.session_state.session_expired = True
+        
+        # Lockout the user's browser storage
+        trigger_lockout_js = """
+        <script>
+            localStorage.setItem("creditpulse_expired", "true");
+            window.location.reload();
+        </script>
+        """
+        st.components.v1.html(trigger_lockout_js, height=0, width=0)
+        
+        st.title("🔒 Sandbox Session Expired")
+        st.error("⏰ Your 10-minute automated verification window has fully elapsed.")
+        st.info("This single-use access link has expired for your device configuration.")
+        st.stop() 
 
-# Render ticking user-facing clock widget elements
-time_left_seconds = int(SESSION_LIMIT_SECONDS - elapsed_time)
-mins, secs = divmod(time_left_seconds, 60)
-st.sidebar.markdown("---")
-st.sidebar.markdown(f"### ⏳ Sandbox Timer:\n## `{mins:02d}:{secs:02d}`")
-st.sidebar.caption("Allocations terminate automatically to maximize server availability bounds.")
+    # Show countdown clock ONLY to public users
+    time_left_seconds = int(SESSION_LIMIT_SECONDS - elapsed_time)
+    mins, secs = divmod(time_left_seconds, 60)
+    st.sidebar.markdown("---")
+    st.sidebar.markdown(f"### ⏳ Sandbox Timer:\n## `{mins:02d}:{secs:02d}`")
+else:
+    # Visual confirmation for you that you are running uncapped mode
+    st.sidebar.markdown("---")
+    st.sidebar.info("⚡ Uncapped Developer Session Active. Timeout disabled.")
 
 # ========================================================================= 
-# 5. CORE MATHEMATICAL LIBRARIES & SYSTEM PIPELINES (Page 4 Continuation)
+# 📊 CORE APP DATA ANALYSIS CONTINUES SAFELY BELOW
 # ========================================================================= 
 
 import streamlit as st
