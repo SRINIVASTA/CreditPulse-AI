@@ -7,3 +7,4 @@ openpyxl
 xlrd
 reportlab
 streamlit-javascript
+countryinfo
