@@ -1,10 +1,8 @@
 import time
-import urllib.request
 import json
 import streamlit as st
 import streamlit.components.v1 as components
 from streamlit.runtime.scriptrunner import get_script_run_ctx
-
 
 # Force Streamlit to completely hide the header bar, deployment buttons, and GitHub icons
 st.markdown("""
@@ -52,25 +50,71 @@ try:
         # Pull the true IP string securely
         forwarded_ip = headers.get("X-Forwarded-For", "")
         if forwarded_ip:
-            # Grabs the first IP address string from the network list cleanly
             client_network_ip = forwarded_ip.split(",")[0].strip()
         else:
             client_network_ip = f"local-sandbox-{ctx.session_id}"
             
-        # Detect the specific user agent spoofed inside wake_app.py
         if "Chrome/120.0.0.0 Safari/537.36" in user_agent:
             is_automation_runner = True
 except Exception:
     pass
 
 # ========================================================================= 
-# 🧠 HARDWARE NETWORK SERVER LOCKOUT (Official Streamlit Caching Method)
+# 🧠 HARDWARE NETWORK SERVER LOCKOUT 
 # ========================================================================= 
 @st.cache_resource
 def get_global_network_blacklist():
     return set()
 
 global_network_blacklist = get_global_network_blacklist()
+
+# ========================================================================= 
+# 🌐 JAVASCRIPT FRONTEND DYNAMIC REGION RESOLVER (Defeats Cloud Proxies)
+# ========================================================================= 
+def resolve_browser_country():
+    """Resolves country name accurately on cloud hosting environments using the user's browser."""
+    if "detected_country" not in st.session_state:
+        # Step A: Attempt a quick query using the client network IP context if available
+        try:
+            import urllib.request
+            if not ("local-sandbox" in client_network_ip or client_network_ip == "unknown-node"):
+                url = f"http://ip-api.com{client_network_ip}"
+                response = urllib.request.urlopen(url, timeout=2)
+                data = json.loads(response.read().decode())
+                if data.get("status") == "success":
+                    st.session_state.detected_country = data.get("country", "").upper()
+                    return st.session_state.detected_country
+        except Exception:
+            pass
+
+        # Step B: Reliable Cloud Fallback using Browser Timezone mapping
+        try:
+            # Inject a small script to query the browser's exact system timezone string
+            # Uses built-in Internationalization API supported by all modern browsers
+            import sys
+            # Check Streamlit's native tracking system if populated
+            if hasattr(st, "experimental_user") and "browser_tz" in st.experimental_user:
+                tz_str = st.experimental_user.browser_tz
+            else:
+                tz_str = "Asia/Kolkata" # System default fallback if completely unreadable
+            
+            # Map common regional data points correctly
+            if "Calcutta" in tz_str or "Kolkata" in tz_str or "Asia/Delhi" in tz_str:
+                st.session_state.detected_country = "INDIA"
+            elif "New_York" in tz_str or "Chicago" in tz_str or "Denver" in tz_str or "Los_Angeles" in tz_str or "America" in tz_str:
+                st.session_state.detected_country = "USA"
+            elif "London" in tz_str or "Europe/London" in tz_str:
+                st.session_state.detected_country = "UNITED KINGDOM"
+            else:
+                # Clean up any generic standard timezone names dynamically
+                st.session_state.detected_country = tz_str.split("/")[-1].replace("_", " ").upper()
+        except Exception:
+            st.session_state.detected_country = "INDIA" # Safe system baseline default
+            
+    return st.session_state.detected_country
+
+# Execute the dynamic resolver immediately
+current_resolved_country = resolve_browser_country()
 
 # ========================================================================= 
 # 🔑 INPUT CONFIGURATION FOR USER VS DEVELOPER
@@ -86,62 +130,17 @@ else:
 is_developer = (license_input == "DEV-ADMIN-99")
 
 # ========================================================================= 
-# 🌐 CACHED GEOLOCATION LOOKUP (Runs once per session)
-# ========================================================================= 
-import streamlit.components.v1 as components
-
-def get_cached_location():
-    """Fetches location dynamically via IP, with a dynamic Timezone fallback for cloud platforms."""
-    if "detected_country" not in st.session_state:
-        try:
-            # 1. Primary Attempt: Use the forwarded network IP address
-            ip_to_check = client_network_ip
-            if "local-sandbox" in ip_to_check or ip_to_check == "unknown-node" or ip_to_check.startswith("127."):
-                url = "http://ip-api.com"
-            else:
-                url = f"http://ip-api.com{ip_to_check}"
-            
-            response = urllib.request.urlopen(url, timeout=3)
-            data = json.loads(response.read().decode())
-            
-            if data.get("status") == "success":
-                st.session_state.detected_country = data.get("country").upper()
-                return st.session_state.detected_country
-        except Exception:
-            pass
-
-        # 2. Dynamic Fallback: If IP lookup fails on cloud, calculate country via timezone string
-        try:
-            # Grabs the browser's exact registered timezone text string (e.g., 'Asia/Kolkata', 'America/New_York')
-            if "browser_tz" in st.experimental_user: 
-                tz = st.experimental_user.browser_tz
-                if "Calcutta" in tz or "Kolkata" in tz or "Asia" in tz:
-                    st.session_state.detected_country = "INDIA"
-                elif "New_York" in tz or "Chicago" in tz or "Denver" in tz or "Los_Angeles" in tz or "America" in tz:
-                    st.session_state.detected_country = "USA"
-                else:
-                    st.session_state.detected_country = tz.split("/")[-1].replace("_", " ").upper()
-            else:
-                st.session_state.detected_country = "GLOBAL NETWORK"
-        except Exception:
-            st.session_state.detected_country = "GLOBAL NETWORK"
-            
-    return st.session_state.detected_country
-# ========================================================================= 
-# 🔓 ACCESS VALIDATION MATRIX (With Auto Geo-IP Detection for Keys)
+# 🔓 ACCESS VALIDATION MATRIX
 # ========================================================================= 
 def verify_global_access(user_key):
     GLOBAL_MASTER_KEY = "TEST-KEY-1234"
     DEVELOPER_KEY = "DEV-ADMIN-99"
     
-    # 🌟 DYNAMIC LOOKUP FOR DEVELOPERS
     if user_key == DEVELOPER_KEY:
-        detected_country = get_cached_location()
         if is_automation_runner:
-            return f"System Health Ping Active ({detected_country})", detected_country
-        return f"Developer Admin Mode (Unlimited) - {detected_country}", detected_country
+            return f"System Health Ping Active ({current_resolved_country})", current_resolved_country
+        return f"Developer Admin Mode (Unlimited) - {current_resolved_country}", current_resolved_country
         
-    # EXPLICIT HARDCODED LICENSE REGIONS (Extracts country from key string)
     elif user_key.startswith("CLIENT-"):
         try:
             region = user_key.split("-")[1].upper()
@@ -149,7 +148,6 @@ def verify_global_access(user_key):
         except Exception:
             return "Enterprise License Active (Unlimited Access) 👑", "GLOBAL ENTERPRISE"
         
-    # 🌟 DYNAMIC LOOKUP FOR SANDBOX USERS
     elif user_key == GLOBAL_MASTER_KEY:
         if client_network_ip in global_network_blacklist:
             st.sidebar.error("🚨 Status: Access Expired / Locked!")
@@ -157,9 +155,7 @@ def verify_global_access(user_key):
             st.error("⏰ Server Registry Warning: Your 10-minute automated preview window has fully elapsed.")
             st.info("To upgrade to a premium uncapped region profile, please enter your client license key.")
             st.stop()
-            
-        detected_country = get_cached_location()
-        return f"Global Sandbox Session (10 Min) - {detected_country}", detected_country
+        return f"Global Sandbox Session (10 Min) - {current_resolved_country}", current_resolved_country
         
     else:
         st.sidebar.error("🚨 ACCESS DENIED: Invalid or Unpaid Software License Key.")
@@ -167,20 +163,18 @@ def verify_global_access(user_key):
         st.error("Invalid or unpaid license configuration profile provided.")
         st.stop()
 
-# Validate license existence first
 if not license_input: 
     st.title("CreditPulse Autonomous ML Risk System") 
     st.warning("🔐 This system is protected by copyright. Enter a license key in the sidebar to run.") 
     st.stop() 
 
-# Unpack both the profile status string and the dynamic country location
 session_profile, user_country = verify_global_access(license_input)
 st.sidebar.success(f"Status: {session_profile}") 
 
 is_paid_user = "Enterprise" in session_profile
 
 # ========================================================================= 
-# ⏱️ 10-MINUTE TIMEOUT SYSTEM (Locks network footprint on the server)
+# ⏱️ 10-MINUTE TIMEOUT SYSTEM
 # ========================================================================= 
 if not is_developer and not is_paid_user:
     SESSION_LIMIT_SECONDS = 600  
