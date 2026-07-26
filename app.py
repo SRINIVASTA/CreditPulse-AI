@@ -1,7 +1,8 @@
 import time
+import urllib.request
 import json
+import pytz  # Handles global timezone-to-country mapping automatically
 import streamlit as st
-import streamlit.components.v1 as components
 from streamlit.runtime.scriptrunner import get_script_run_ctx
 
 # Force Streamlit to completely hide the header bar, deployment buttons, and GitHub icons
@@ -69,51 +70,66 @@ def get_global_network_blacklist():
 global_network_blacklist = get_global_network_blacklist()
 
 # ========================================================================= 
-# 🌐 JAVASCRIPT FRONTEND DYNAMIC REGION RESOLVER (Defeats Cloud Proxies)
+# 🌐 GLOBAL REGION RESOLVER (Works for Every Country via pytz Database)
 # ========================================================================= 
 def resolve_browser_country():
-    """Resolves country name accurately on cloud hosting environments using the user's browser."""
+    """Dynamically identifies any country in the world using browser metadata fallback chains."""
     if "detected_country" not in st.session_state:
-        # Step A: Attempt a quick query using the client network IP context if available
+        # Step A: Primary Attempt - Check if the WebSocket Forwarded IP yields a clean result
         try:
-            import urllib.request
             if not ("local-sandbox" in client_network_ip or client_network_ip == "unknown-node"):
                 url = f"http://ip-api.com{client_network_ip}"
                 response = urllib.request.urlopen(url, timeout=2)
                 data = json.loads(response.read().decode())
-                if data.get("status") == "success":
-                    st.session_state.detected_country = data.get("country", "").upper()
+                if data.get("status") == "success" and data.get("country"):
+                    st.session_state.detected_country = data.get("country").upper()
                     return st.session_state.detected_country
         except Exception:
             pass
 
-        # Step B: Reliable Cloud Fallback using Browser Timezone mapping
+        # Step B: Cloud Fallback - Fetch Browser Timezone and convert to Country using pytz
         try:
-            # Inject a small script to query the browser's exact system timezone string
-            # Uses built-in Internationalization API supported by all modern browsers
-            import sys
-            # Check Streamlit's native tracking system if populated
             if hasattr(st, "experimental_user") and "browser_tz" in st.experimental_user:
                 tz_str = st.experimental_user.browser_tz
             else:
-                tz_str = "Asia/Kolkata" # System default fallback if completely unreadable
-            
-            # Map common regional data points correctly
-            if "Calcutta" in tz_str or "Kolkata" in tz_str or "Asia/Delhi" in tz_str:
-                st.session_state.detected_country = "INDIA"
-            elif "New_York" in tz_str or "Chicago" in tz_str or "Denver" in tz_str or "Los_Angeles" in tz_str or "America" in tz_str:
-                st.session_state.detected_country = "USA"
-            elif "London" in tz_str or "Europe/London" in tz_str:
-                st.session_state.detected_country = "UNITED KINGDOM"
-            else:
-                # Clean up any generic standard timezone names dynamically
-                st.session_state.detected_country = tz_str.split("/")[-1].replace("_", " ").upper()
+                tz_str = "Asia/Kolkata"  # Base default backup if context is blocked
+
+            if tz_str:
+                # Find ISO Code from pytz timezone mapping
+                country_code = None
+                for code, zones in pytz.country_timezones.items():
+                    if tz_str in zones:
+                        country_code = code
+                        break
+                
+                # Convert common ISO codes to full legible country names
+                if country_code:
+                    iso_mapping = {
+                        "IN": "INDIA", "AE": "UNITED ARAB EMIRATES", "ZA": "SOUTH AFRICA", 
+                        "EG": "EGYPT", "NG": "NIGERIA", "KE": "KENYA", "US": "USA", 
+                        "GB": "UNITED KINGDOM", "CA": "CANADA", "AU": "AUSTRALIA",
+                        "SA": "SAUDI ARABIA", "DE": "GERMANY", "FR": "FRANCE", "JP": "JAPAN"
+                    }
+                    if country_code in iso_mapping:
+                        st.session_state.detected_country = iso_mapping[country_code]
+                        return st.session_state.detected_country
+                    else:
+                        # Fallback parsing format if country name is missing from the subset dictionary
+                        st.session_state.detected_country = f"{country_code} REGION"
+                        return st.session_state.detected_country
+                else:
+                    # Generic text manipulation fallback if timezone is exotic
+                    st.session_state.detected_country = tz_str.split("/")[-1].replace("_", " ").upper()
+                    return st.session_state.detected_country
         except Exception:
-            st.session_state.detected_country = "INDIA" # Safe system baseline default
+            pass
+
+        # Final absolute fallback if execution environment is completely isolated
+        st.session_state.detected_country = "GLOBAL ACCESS PROFILE"
             
     return st.session_state.detected_country
 
-# Execute the dynamic resolver immediately
+# Execute the universal country string checker instantly
 current_resolved_country = resolve_browser_country()
 
 # ========================================================================= 
@@ -143,6 +159,7 @@ def verify_global_access(user_key):
         
     elif user_key.startswith("CLIENT-"):
         try:
+            # Safely converts target string extraction values to uppercase
             region = user_key.split("-")[1].upper()
             return f"Enterprise License Active ({region} Portfolio Unlimited) 👑", region
         except Exception:
