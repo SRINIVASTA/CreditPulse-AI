@@ -1,6 +1,6 @@
 import time
 import streamlit as st
-from streamlit.web.server.websocket_headers import _get_websocket_headers
+from streamlit.runtime.scriptrunner import get_script_run_ctx
 
 # Force Streamlit to completely hide the header bar, deployment buttons, and GitHub icons
 st.markdown("""
@@ -30,14 +30,18 @@ st.sidebar.markdown(
 )
 
 # ========================================================================= 
-# 🤖 AUTOMATION BYPASS DETECTION
+# 🤖 AUTOMATION BYPASS DETECTION (For keep_alive.yml compatibility)
 # ========================================================================= 
 is_automation_runner = False
 try:
-    headers = _get_websocket_headers()
-    user_agent = headers.get("User-Agent", "")
-    if "Chrome/120.0.0.0 Safari/537.36" in user_agent:
-        is_automation_runner = True
+    ctx = get_script_run_ctx()
+    if ctx is not None:
+        # Read the real incoming web request headers securely
+        headers = ctx.websocket_headers
+        user_agent = headers.get("User-Agent", "")
+        # Detect the specific user agent spoofed inside wake_app.py
+        if "Chrome/120.0.0.0 Safari/537.36" in user_agent:
+            is_automation_runner = True
 except Exception:
     pass
 
