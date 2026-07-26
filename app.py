@@ -1,5 +1,6 @@
 import time
 import streamlit as st
+from streamlit.web.server.websocket_headers import _get_websocket_headers
 
 # Force Streamlit to completely hide the header bar, deployment buttons, and GitHub icons
 st.markdown("""
@@ -19,7 +20,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # ========================================================================= 
-# 🏷️ COPYRIGHT NOTICE (Visible to everyone immediately)
+# 🏷️ COPYRIGHT NOTICE 
 # ========================================================================= 
 st.sidebar.markdown(
     "<div style='text-align: center; color: #888888; font-size: 12px; margin-bottom: 20px;'>"
@@ -27,28 +28,47 @@ st.sidebar.markdown(
     "</div>", 
     unsafe_allow_html=True
 )
+
+# ========================================================================= 
+# 🤖 AUTOMATION BYPASS DETECTION
+# ========================================================================= 
+is_automation_runner = False
+try:
+    headers = _get_websocket_headers()
+    user_agent = headers.get("User-Agent", "")
+    if "Chrome/120.0.0.0 Safari/537.36" in user_agent:
+        is_automation_runner = True
+except Exception:
+    pass
+
 # ========================================================================= 
 # 🔑 INPUT CONFIGURATION FOR USER VS DEVELOPER
 # ========================================================================= 
 st.sidebar.title("🔒 Software Security Portal") 
-license_input = st.sidebar.text_input("Enter License Key:", type="password") 
 
-# Detect Developer Bypass Mode
+if is_automation_runner:
+    license_input = "DEV-ADMIN-99"  
+    st.sidebar.text_input("Enter License Key:", value="••••••••••••", type="password", disabled=True)
+else:
+    license_input = st.sidebar.text_input("Enter License Key:", type="password") 
+
 is_developer = (license_input == "DEV-ADMIN-99")
 
 # ========================================================================= 
-# 🧠 BROWSER-LEVEL PERSISTENT BLACKLIST LOGIC (Skipped for Developer)
+# 🧠 BROWSER-LEVEL TEST KEY LOCK (Keeps portal open for paid keys!)
 # ========================================================================= 
-if not is_developer:
+# Hidden JavaScript to check if ONLY the test key is expired on this browser
+if license_input == "TEST-KEY-1234":
     check_blacklist_js = """
     <script>
-        const isBlacklisted = localStorage.getItem("creditpulse_expired");
-        if (isBlacklisted === "true") {
+        const isTestExpired = localStorage.getItem("creditpulse_test_expired");
+        if (isTestExpired === "true") {
             window.parent.document.body.innerHTML = `
                 <div style="font-family:sans-serif; text-align:center; margin-top:100px; padding:20px;">
                     <h1 style="color:#E74C3C;">🔒 Sandbox Access Permanently Locked</h1>
-                    <p style="font-size:18px; color:#555;">Your single-use 10-minute preview allocation has fully elapsed on this device.</p>
-                    <p style="font-size:14px; color:#888;">To request an enterprise evaluation license, please send a message or comment on my LinkedIn post.</p>
+                    <p style="font-size:18px; color:#555;">Your single-use 10-minute trial allocation for <b>TEST-KEY-1234</b> has fully elapsed.</p>
+                    <p style="font-size:16px; color:#27AE60; font-weight:bold;">To unlock unlimited access, please refresh this browser page and enter your purchased Premium License Key!</p>
+                    <p style="font-size:14px; color:#888; margin-top:30px;">Contact me on LinkedIn to upgrade your evaluation license.</p>
                 </div>
             `;
         }
@@ -56,23 +76,33 @@ if not is_developer:
     """
     st.components.v1.html(check_blacklist_js, height=0, width=0)
 
-# Initialize standard runtime variables
+# Initialize runtime trial tracking clock
 if "start_time" not in st.session_state:
     st.session_state.start_time = time.time()
 if "session_expired" not in st.session_state:
     st.session_state.session_expired = False
 
 # ========================================================================= 
-# 🔓 ACCESS VALIDATION MATRIX
+# 🔓 ACCESS VALIDATION MATRIX (Includes your new Premium Paid Keys!)
 # ========================================================================= 
 def verify_global_access(user_key):
     GLOBAL_MASTER_KEY = "TEST-KEY-1234"
     DEVELOPER_KEY = "DEV-ADMIN-99"
     
+    # 🌟 YOU CAN ADD YOUR PAID CLIENT KEYS HERE:
+    PAID_PREMIUM_KEYS = ["PREMIUM-KEY-8888", "CLIENT-ACCESS-XYZ"]
+    
     if user_key == DEVELOPER_KEY:
+        if is_automation_runner:
+            return "System Health Ping Active"
         return "Developer Admin Mode (Unlimited)"
+        
+    elif user_key in PAID_PREMIUM_KEYS:
+        return "Enterprise License Active (Unlimited Access) 👑"
+        
     elif user_key == GLOBAL_MASTER_KEY:
         return "Global Sandbox Session (10 Min)"
+        
     else:
         st.error("🚨 ACCESS DENIED: Invalid or Unpaid Software License Key.")
         st.stop()
@@ -85,39 +115,44 @@ if not license_input:
 session_profile = verify_global_access(license_input)
 st.sidebar.success(f"Status: {session_profile}") 
 
+# Check if the session profile contains the word "Enterprise" to skip the timer
+is_paid_user = "Enterprise" in session_profile
+
 # ========================================================================= 
-# ⏱️ 10-MINUTE TIMEOUT SYSTEM (Completely Disabled for Developer)
+# ⏱️ 10-MINUTE TIMEOUT SYSTEM (Only runs for the free Test Key!)
 # ========================================================================= 
-if not is_developer:
-    SESSION_LIMIT_SECONDS = 600  # 10 Minutes for normal users
+if not is_developer and not is_paid_user:
+    SESSION_LIMIT_SECONDS = 600  
     elapsed_time = time.time() - st.session_state.start_time
 
     if elapsed_time > SESSION_LIMIT_SECONDS or st.session_state.session_expired:
         st.session_state.session_expired = True
         
-        # Lockout the user's browser storage
+        # Lockout ONLY the test key marker inside browser storage
         trigger_lockout_js = """
         <script>
-            localStorage.setItem("creditpulse_expired", "true");
+            localStorage.setItem("creditpulse_test_expired", "true");
             window.location.reload();
         </script>
         """
         st.components.v1.html(trigger_lockout_js, height=0, width=0)
-        
-        st.title("🔒 Sandbox Session Expired")
-        st.error("⏰ Your 10-minute automated verification window has fully elapsed.")
-        st.info("This single-use access link has expired for your device configuration.")
         st.stop() 
 
-    # Show countdown clock ONLY to public users
     time_left_seconds = int(SESSION_LIMIT_SECONDS - elapsed_time)
     mins, secs = divmod(time_left_seconds, 60)
     st.sidebar.markdown("---")
     st.sidebar.markdown(f"### ⏳ Sandbox Timer:\n## `{mins:02d}:{secs:02d}`")
-else:
-    # Visual confirmation for you that you are running uncapped mode
+elif is_paid_user:
     st.sidebar.markdown("---")
-    st.sidebar.info("⚡ Uncapped Developer Session Active. Timeout disabled.")
+    st.sidebar.info("👑 Unlimited Enterprise License Active. Enjoy the system!")
+else:
+    st.sidebar.markdown("---")
+    if is_automation_runner:
+        st.sidebar.warning("🤖 Core Engine Keep-Alive Loop Processing...")
+        st.title("System Diagnostic Overview")
+        st.write("Server connection verified successfully.")
+    else:
+        st.sidebar.info("⚡ Uncapped Developer Session Active. Timeout disabled.")
 
 # ========================================================================= 
 # 📊 CORE APP DATA ANALYSIS CONTINUES SAFELY BELOW
