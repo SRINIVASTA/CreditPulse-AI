@@ -16,6 +16,10 @@ st.markdown("""
     footer {
         visibility: hidden !important;
     }
+    .stAppDeployButton {
+        visibility: hidden !important;
+        display: none !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -44,7 +48,7 @@ try:
         # Pull the true IP string securely
         forwarded_ip = headers.get("X-Forwarded-For", "")
         if forwarded_ip:
-            # Grabs the first IP address string from the list cleanly
+            # Grabs the first IP address string from the network list cleanly
             client_network_ip = forwarded_ip.split(",")[0].strip()
         else:
             client_network_ip = f"local-sandbox-{ctx.session_id}"
@@ -56,13 +60,13 @@ except Exception:
     pass
 
 # ========================================================================= 
-# 🧠 HARDWARE NETWORK SERVER LOCKOUT (Cross-Browser Network-Level Ban)
+# 🧠 HARDWARE NETWORK SERVER LOCKOUT (Official Streamlit Caching Method)
 # ========================================================================= 
-# Creating an un-erasable global map directly inside the Streamlit hosting core memory
-if "network_ban_registry" not in st.runtime.caching.cache_data_link:
-    st.runtime.caching.cache_data_link["network_ban_registry"] = set()
+@st.cache_resource
+def get_global_network_blacklist():
+    return set()
 
-global_network_blacklist = st.runtime.caching.cache_data_link["network_ban_registry"]
+global_network_blacklist = get_global_network_blacklist()
 
 # ========================================================================= 
 # 🔑 INPUT CONFIGURATION FOR USER VS DEVELOPER
@@ -78,7 +82,7 @@ else:
 is_developer = (license_input == "DEV-ADMIN-99")
 
 # ========================================================================= 
-# 🔓 ACCESS VALIDATION MATRIX (Includes country-based Client Keys!)
+# 🔓 ACCESS VALIDATION MATRIX (Includes your country-based Client Keys!)
 # ========================================================================= 
 def verify_global_access(user_key):
     GLOBAL_MASTER_KEY = "TEST-KEY-1234"
@@ -124,8 +128,7 @@ is_paid_user = "Enterprise" in session_profile
 # ⏱️ 10-MINUTE TIMEOUT SYSTEM (Locks network footprint on the server)
 # ========================================================================= 
 if not is_developer and not is_paid_user:
-    # 🧪 TEST ENGINE TIP: Change 600 to 10 for a rapid 10-second cross-browser test!
-    SESSION_LIMIT_SECONDS = 600  
+    SESSION_LIMIT_SECONDS = 600  # Set to 10 for a rapid 10-second cross-browser test!
     
     if "start_time" not in st.session_state:
         st.session_state.start_time = time.time()
@@ -161,6 +164,7 @@ else:
         st.write("Server connection verified successfully.")
     else:
         st.sidebar.info("⚡ Uncapped Developer Session Active. Timeout disabled.")
+
 # ========================================================================= 
 # 📊 CORE APP DATA ANALYSIS CONTINUES SAFELY BELOW
 # ========================================================================= 
