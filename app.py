@@ -131,6 +131,10 @@ if not is_developer and not is_paid_user:
 
     if elapsed_time > SESSION_LIMIT_SECONDS or st.session_state.session_expired:
         st.session_state.session_expired = True
+
+        # 🌟 UPDATED: Changes the sidebar message to show it is locked right before reload
+        st.sidebar.error("🚨 Status: Access Expired / Locked!")
+
         
         # Lockout ONLY the test key marker inside browser storage
         trigger_lockout_js = """
