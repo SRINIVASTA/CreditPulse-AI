@@ -40,12 +40,14 @@ try:
     if ctx is not None:
         headers = ctx.websocket_headers
         user_agent = headers.get("User-Agent", "")
-        # Extract true network routing footprint forwarded by Cloudflare/Streamlit
+        
+        # Pull the true IP string securely
         forwarded_ip = headers.get("X-Forwarded-For", "")
         if forwarded_ip:
+            # Grabs the first IP address string from the list cleanly
             client_network_ip = forwarded_ip.split(",")[0].strip()
         else:
-            client_network_ip = "local-sandbox-node"
+            client_network_ip = f"local-sandbox-{ctx.session_id}"
             
         # Detect the specific user agent spoofed inside wake_app.py
         if "Chrome/120.0.0.0 Safari/537.36" in user_agent:
