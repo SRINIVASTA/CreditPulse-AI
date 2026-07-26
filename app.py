@@ -2,7 +2,9 @@ import time
 import urllib.request
 import json
 import streamlit as st
+import streamlit.components.v1 as components
 from streamlit.runtime.scriptrunner import get_script_run_ctx
+
 
 # Force Streamlit to completely hide the header bar, deployment buttons, and GitHub icons
 st.markdown("""
@@ -86,34 +88,45 @@ is_developer = (license_input == "DEV-ADMIN-99")
 # ========================================================================= 
 # 🌐 CACHED GEOLOCATION LOOKUP (Runs once per session)
 # ========================================================================= 
+import streamlit.components.v1 as components
+
 def get_cached_location():
-    """Fetches real physical location using the forwarded client IP and caches it."""
+    """Fetches location dynamically via IP, with a dynamic Timezone fallback for cloud platforms."""
     if "detected_country" not in st.session_state:
         try:
-            # 1. Grab the client IP your code already calculated upstairs
+            # 1. Primary Attempt: Use the forwarded network IP address
             ip_to_check = client_network_ip
-            
-            # 2. Handle local sandboxes gracefully so the API doesn't crash on local networks
             if "local-sandbox" in ip_to_check or ip_to_check == "unknown-node" or ip_to_check.startswith("127."):
-                # If running locally, check your router's public identity directly
                 url = "http://ip-api.com"
             else:
-                # If hosted on a cloud platform, check the true forwarded browser network location
                 url = f"http://ip-api.com{ip_to_check}"
             
-            # 3. Call the geolocation engine securely
             response = urllib.request.urlopen(url, timeout=3)
             data = json.loads(response.read().decode())
             
             if data.get("status") == "success":
-                st.session_state.detected_country = data.get("country", "INDIA").upper()
-            else:
-                st.session_state.detected_country = "INDIA" # Fallback default
+                st.session_state.detected_country = data.get("country").upper()
+                return st.session_state.detected_country
         except Exception:
-            st.session_state.detected_country = "INDIA" # Fallback default
+            pass
+
+        # 2. Dynamic Fallback: If IP lookup fails on cloud, calculate country via timezone string
+        try:
+            # Grabs the browser's exact registered timezone text string (e.g., 'Asia/Kolkata', 'America/New_York')
+            if "browser_tz" in st.experimental_user: 
+                tz = st.experimental_user.browser_tz
+                if "Calcutta" in tz or "Kolkata" in tz or "Asia" in tz:
+                    st.session_state.detected_country = "INDIA"
+                elif "New_York" in tz or "Chicago" in tz or "Denver" in tz or "Los_Angeles" in tz or "America" in tz:
+                    st.session_state.detected_country = "USA"
+                else:
+                    st.session_state.detected_country = tz.split("/")[-1].replace("_", " ").upper()
+            else:
+                st.session_state.detected_country = "GLOBAL NETWORK"
+        except Exception:
+            st.session_state.detected_country = "GLOBAL NETWORK"
             
     return st.session_state.detected_country
-
 # ========================================================================= 
 # 🔓 ACCESS VALIDATION MATRIX (With Auto Geo-IP Detection for Keys)
 # ========================================================================= 
