@@ -231,7 +231,10 @@ else:
 # ========================================================================= 
 # 🎯 CORE APPLICATION CORE LANDING INTERFACE
 # ========================================================================= 
-st.title("CreditPulse Autonomous ML Risk System")
+
+st.title("🚀 CreditPulse Autonomous ML Risk System")
+st.caption("Predictive artificial intelligence portfolio auditor & card control switcher")
+
 st.success(f"👋 Welcome! System instance running profile for: **{user_country}**")
 
 if is_automation_runner:
@@ -430,8 +433,6 @@ if df is not None:
         else:
             status, color = "🟢 HEALTHY PORTFOLIO", "green"
 
-        st.title("🚀 CreditPulse Autonomous ML Risk System")
-        st.caption("Predictive artificial intelligence portfolio auditor & card control switcher")
         st.markdown(f"### Current Portfolio Status: :{color}[{status}]")
         st.write("---")
         # =========================================================================
