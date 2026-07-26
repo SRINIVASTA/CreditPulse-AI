@@ -87,20 +87,30 @@ is_developer = (license_input == "DEV-ADMIN-99")
 # 🌐 CACHED GEOLOCATION LOOKUP (Runs once per session)
 # ========================================================================= 
 def get_cached_location():
-    """Fetches real physical location and caches it in session memory."""
+    """Fetches real physical location using the forwarded client IP and caches it."""
     if "detected_country" not in st.session_state:
         try:
-            # Calls free public IP API to fetch geographic location metadata
-            url = "http://ip-api.com"
+            # 1. Grab the client IP your code already calculated upstairs
+            ip_to_check = client_network_ip
+            
+            # 2. Handle local sandboxes gracefully so the API doesn't crash on local networks
+            if "local-sandbox" in ip_to_check or ip_to_check == "unknown-node" or ip_to_check.startswith("127."):
+                # If running locally, check your router's public identity directly
+                url = "http://ip-api.com"
+            else:
+                # If hosted on a cloud platform, check the true forwarded browser network location
+                url = f"http://ip-api.com{ip_to_check}"
+            
+            # 3. Call the geolocation engine securely
             response = urllib.request.urlopen(url, timeout=3)
             data = json.loads(response.read().decode())
             
             if data.get("status") == "success":
-                st.session_state.detected_country = data.get("country", "GLOBAL NETWORK").upper()
+                st.session_state.detected_country = data.get("country", "INDIA").upper()
             else:
-                st.session_state.detected_country = "GLOBAL NETWORK"
+                st.session_state.detected_country = "INDIA" # Fallback default
         except Exception:
-            st.session_state.detected_country = "GLOBAL NETWORK"
+            st.session_state.detected_country = "INDIA" # Fallback default
             
     return st.session_state.detected_country
 
