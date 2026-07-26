@@ -19,6 +19,15 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # ========================================================================= 
+# 🏷️ COPYRIGHT NOTICE (Visible to everyone immediately)
+# ========================================================================= 
+st.sidebar.markdown(
+    "<div style='text-align: center; color: #888888; font-size: 12px; margin-bottom: 20px;'>"
+    "© 2026 CreditPulse-AI. All Rights Reserved by Srinivasta."
+    "</div>", 
+    unsafe_allow_html=True
+)
+# ========================================================================= 
 # 🔑 INPUT CONFIGURATION FOR USER VS DEVELOPER
 # ========================================================================= 
 st.sidebar.title("🔒 Software Security Portal") 
