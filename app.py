@@ -33,17 +33,34 @@ st.sidebar.markdown(
 # 🤖 AUTOMATION BYPASS DETECTION (For keep_alive.yml compatibility)
 # ========================================================================= 
 is_automation_runner = False
+client_network_ip = "unknown-node"
+
 try:
     ctx = get_script_run_ctx()
     if ctx is not None:
-        # Read the real incoming web request headers securely
         headers = ctx.websocket_headers
         user_agent = headers.get("User-Agent", "")
+        # Extract true network routing footprint forwarded by Cloudflare/Streamlit
+        forwarded_ip = headers.get("X-Forwarded-For", "")
+        if forwarded_ip:
+            client_network_ip = forwarded_ip.split(",")[0].strip()
+        else:
+            client_network_ip = "local-sandbox-node"
+            
         # Detect the specific user agent spoofed inside wake_app.py
         if "Chrome/120.0.0.0 Safari/537.36" in user_agent:
             is_automation_runner = True
 except Exception:
     pass
+
+# ========================================================================= 
+# 🧠 HARDWARE NETWORK SERVER LOCKOUT (Cross-Browser Network-Level Ban)
+# ========================================================================= 
+# Creating an un-erasable global map directly inside the Streamlit hosting core memory
+if "network_ban_registry" not in st.runtime.caching.cache_data_link:
+    st.runtime.caching.cache_data_link["network_ban_registry"] = set()
+
+global_network_blacklist = st.runtime.caching.cache_data_link["network_ban_registry"]
 
 # ========================================================================= 
 # 🔑 INPUT CONFIGURATION FOR USER VS DEVELOPER
@@ -59,52 +76,32 @@ else:
 is_developer = (license_input == "DEV-ADMIN-99")
 
 # ========================================================================= 
-# 🧠 BROWSER-LEVEL TEST KEY LOCK (Keeps portal open for paid keys!)
-# ========================================================================= 
-# Hidden JavaScript to check if ONLY the test key is expired on this browser
-if license_input == "TEST-KEY-1234":
-    check_blacklist_js = """
-    <script>
-        const isTestExpired = localStorage.getItem("creditpulse_test_expired");
-        if (isTestExpired === "true") {
-            window.parent.document.body.innerHTML = `
-                <div style="font-family:sans-serif; text-align:center; margin-top:100px; padding:20px;">
-                    <h1 style="color:#E74C3C;">🔒 Sandbox Access Permanently Locked</h1>
-                    <p style="font-size:18px; color:#555;">Your single-use 10-minute trial allocation for <b>TEST-KEY-1234</b> has fully elapsed.</p>
-                    <p style="font-size:16px; color:#27AE60; font-weight:bold;">To unlock unlimited access, please refresh this browser page and enter your purchased Premium License Key!</p>
-                    <p style="font-size:14px; color:#888; margin-top:30px;">Contact me on LinkedIn to upgrade your evaluation license.</p>
-                </div>
-            `;
-        }
-    </script>
-    """
-    st.components.v1.html(check_blacklist_js, height=0, width=0)
-
-# Initialize runtime trial tracking clock
-if "start_time" not in st.session_state:
-    st.session_state.start_time = time.time()
-if "session_expired" not in st.session_state:
-    st.session_state.session_expired = False
-
-# ========================================================================= 
-# 🔓 ACCESS VALIDATION MATRIX (Includes your new Premium Paid Keys!)
+# 🔓 ACCESS VALIDATION MATRIX (Includes country-based Client Keys!)
 # ========================================================================= 
 def verify_global_access(user_key):
     GLOBAL_MASTER_KEY = "TEST-KEY-1234"
     DEVELOPER_KEY = "DEV-ADMIN-99"
-    
-    # 🌟 YOU CAN ADD YOUR PAID CLIENT KEYS HERE:
-    PAID_PREMIUM_KEYS = ["PREMIUM-KEY-8888", "CLIENT-ACCESS-XYZ"]
     
     if user_key == DEVELOPER_KEY:
         if is_automation_runner:
             return "System Health Ping Active"
         return "Developer Admin Mode (Unlimited)"
         
-    elif user_key in PAID_PREMIUM_KEYS:
-        return "Enterprise License Active (Unlimited Access) 👑"
+    elif user_key.startswith("CLIENT-"):
+        try:
+            region = user_key.split("-")[1]
+            return f"Enterprise License Active ({region} Portfolio Unlimited) 👑"
+        except:
+            return "Enterprise License Active (Unlimited Access) 👑"
         
     elif user_key == GLOBAL_MASTER_KEY:
+        # Check if this physical machine's network IP address is blocked on the server
+        if client_network_ip in global_network_blacklist:
+            st.sidebar.error("🚨 Status: Access Expired / Locked!")
+            st.title("🔒 Sandbox Access Permanently Locked")
+            st.error("⏰ Server Registry Warning: Your 10-minute automated preview window has fully elapsed.")
+            st.info("To upgrade to a premium uncapped region profile, please enter your client license key.")
+            st.stop()
         return "Global Sandbox Session (10 Min)"
         
     else:
@@ -119,31 +116,32 @@ if not license_input:
 session_profile = verify_global_access(license_input)
 st.sidebar.success(f"Status: {session_profile}") 
 
-# Check if the session profile contains the word "Enterprise" to skip the timer
 is_paid_user = "Enterprise" in session_profile
 
 # ========================================================================= 
-# ⏱️ 10-MINUTE TIMEOUT SYSTEM (Only runs for the free Test Key!)
+# ⏱️ 10-MINUTE TIMEOUT SYSTEM (Locks network footprint on the server)
 # ========================================================================= 
 if not is_developer and not is_paid_user:
+    # 🧪 TEST ENGINE TIP: Change 600 to 10 for a rapid 10-second cross-browser test!
     SESSION_LIMIT_SECONDS = 600  
+    
+    if "start_time" not in st.session_state:
+        st.session_state.start_time = time.time()
+    if "session_expired" not in st.session_state:
+        st.session_state.session_expired = False
+
     elapsed_time = time.time() - st.session_state.start_time
 
     if elapsed_time > SESSION_LIMIT_SECONDS or st.session_state.session_expired:
         st.session_state.session_expired = True
-
-        # 🌟 UPDATED: Changes the sidebar message to show it is locked right before reload
-        st.sidebar.error("🚨 Status: Access Expired / Locked!")
-
         
-        # Lockout ONLY the test key marker inside browser storage
-        trigger_lockout_js = """
-        <script>
-            localStorage.setItem("creditpulse_test_expired", "true");
-            window.location.reload();
-        </script>
-        """
-        st.components.v1.html(trigger_lockout_js, height=0, width=0)
+        # Lockout the actual network location fingerprint on the server memory registry
+        if client_network_ip != "unknown-node":
+            global_network_blacklist.add(client_network_ip)
+        
+        st.sidebar.error("🚨 Status: Access Expired / Locked!")
+        st.title("🔒 Sandbox Session Expired")
+        st.error("⏰ Your 10-minute automated verification window has fully elapsed.")
         st.stop() 
 
     time_left_seconds = int(SESSION_LIMIT_SECONDS - elapsed_time)
@@ -161,7 +159,6 @@ else:
         st.write("Server connection verified successfully.")
     else:
         st.sidebar.info("⚡ Uncapped Developer Session Active. Timeout disabled.")
-
 # ========================================================================= 
 # 📊 CORE APP DATA ANALYSIS CONTINUES SAFELY BELOW
 # ========================================================================= 
